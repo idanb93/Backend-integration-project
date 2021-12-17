@@ -14,6 +14,6 @@ During the project I experimented with the following:
  
  - Reading API Documentation - understand which data the API request needs, and what are the different responses the API could return.
  
- - Automate moving data around - opening the text files i wish to interact with, readinging the correct lines from the data, and using the data to run the API request, handle the response context errors, handle the response data.
+ - Automate moving data around - open specific text files from a specific folder, reading the relevant lines, using the data within the API request, handle the response context errors returning from the API, handle the response data.
  
- - Wokring with subprocesses - sending the sub-process the script file i wish to run, making the subprocess capture the output as an stdout, transfer the stdout output back to the main process and save it to a diserable form (json file in a specific folder).
+ - Wokring with subprocesses - making the sub-process run a specific script file from a specific folder, making the subprocess capture the output as an stdout, transfer the stdout output back to the main process and save it to a diserable form (json file in a specific folder).
