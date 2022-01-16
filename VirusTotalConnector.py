@@ -1,96 +1,103 @@
-import re
-import os
-import sys
 import json
-import requests
+import os
+import re
+import sys
 from time import sleep
-from DataModels import ConnectorResult
-from SubProcessInputOutputHandler import SubProcessInputOutputHandler
+
+from Connector import Connector
 
 
-def is_valid_url(string):
-    regex = r'\b[A-Za-z0-9._%+-]+.[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+class VirusTotalConnector(Connector):
 
-    try:
-        url = re.match(regex, string)
-        return url is not None
-    except:
-        #  URL Checking was not successful
-        return None
+    def __init__(self, api_key, url):
+        Connector.__init__(self, api_key, url)
+        self.queued_requests = []  # list of scan request that were queued
+        self.list_of_files = []  # list of files that the user wish to read from
 
+    def handle_response(self, response_json, domain):
+        if response_json['verbose_msg'] == 'Scan request successfully queued, come back later for the report':
+            self.queued_requests.append(response_json['resource'])
+        elif response_json['positives'] == 0:
+            self.connector_result.alerts[domain] = "NOT MALICIOUS"
+        else:
+            self.connector_result.alerts[domain] = "MALICIOUS"
 
-def list_files_in_the_source_folder(source_folder_path, text_files_from_the_given_source_folder):
-    for filename in os.listdir(source_folder_path):
-        if filename.endswith(".txt"):
-            text_files_from_the_given_source_folder.append(f"{source_folder_path}\\{filename}")
+    def is_valid_url(self, string_to_check):
 
-
-def read_domains_from_file(filename, iteration_entities_count):
-    list_of_domains_from_file = []
-
-    with open(filename) as f:
-        lines = f.read().splitlines()
-        if lines:
-            [list_of_domains_from_file.append(lines[i]) for i in range(0, iteration_entities_count) if is_valid_url(lines[i])]
-
-    return list_of_domains_from_file
-
-
-def scan_domains(list_of_domains, connector_result, queued_requests):
-
-    for domain in list_of_domains:
+        """
+        This method check if a string is a valid url using regular expression.
+        :param string_to_check: string to check if it is a valid url
+        :return: return True if the string is a url, otherwise return None
+        """
+        regex = r'\b[A-Za-z0-9._%+-]+.[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 
         try:
-
-            params = {'apikey': "4688caacd040f4ef5e0aaf7751ccc71207a8764744fc122c61228c3374764f5d", 'resource': domain, 'scan': 1}
-            response = requests.get('https://www.virustotal.com/vtapi/v2/url/report', params=params)
-            response_json = json.loads(response.content)
-
-            if response_json['verbose_msg'] == 'Scan request successfully queued, come back later for the report':
-                # URL does not exist in VirusTotal engines database
-                queued_requests.append(response_json['resource'])
-
-            elif response_json['positives'] == 0:
-                connector_result.alerts[domain] = "NOT MALICIOUS"
-
-            else:
-                connector_result.alerts[domain] = "MALICIOUS"
-
-            # Adjusting the script to wait 30-60 before querying VirusTotal API again.
-            sleep(40)
-
+            url = re.match(regex, string_to_check)
+            return url is not None
         except:
-            connector_result.alerts[domain] = "MALICIOUS"
+            #  URL Checking was not successful
+            return None
+
+    def list_files(self, files_extension):
+
+        """
+        This method list the files that the user wants to work with.
+        :param files_extension: the extension of the files the user wish to add to the list
+        :return: None
+        """
+
+        for filename in os.listdir(self.connector_params.source_folder_path):
+            if filename.endswith(files_extension):
+                self.list_of_files.append(f"{self.connector_params.source_folder_path}\\{filename}")
+
+    def read_lines_from_file(self, filename):
+
+        """
+        This method read specific lines from a file
+        :param filename: file we wish to read from.
+        :return: list with the specific lines.
+        """
+
+        lines_from_file = []
+
+        with open(filename) as f:
+            lines = f.read().splitlines()
+            if lines:
+                [lines_from_file.append(lines[i]) for i in range(0, self.connector_params.iteration_entities_count) if
+                 self.is_valid_url(lines[i])]
+
+        return lines_from_file
 
 
 def main():
 
-    io_mgr = SubProcessInputOutputHandler()
-    connector_params = io_mgr.connector_params
-    connector_result = ConnectorResult()
+    api_key = "4688caacd040f4ef5e0aaf7751ccc71207a8764744fc122c61228c3374764f5d"
+    url = 'https://www.virustotal.com/vtapi/v2/url/report'
+    current_file = ""
+    file_extension = ".txt"
 
-    queued_requests = []  # list - Scan queued requests that were not found in the VirusTotal database.
-    text_files_from_the_given_source_folder = []  # list - Contains the files we want to scan in the source folder.
-    current_file = ""  # string - Holds the file name you are currently working on.
+    virus_total_connector = VirusTotalConnector(api_key, url)
+    virus_total_connector.list_files(file_extension)
 
-    list_files_in_the_source_folder(connector_params.source_folder_path, text_files_from_the_given_source_folder)
-
-    if not text_files_from_the_given_source_folder:
-        print("There are no txt files in the folder")
+    if not virus_total_connector.list_of_files:
+        print(f"There are no {file_extension} files in the source folder")
         sys.exit()
 
-    current_file = text_files_from_the_given_source_folder.pop()
-    list_of_domains = read_domains_from_file(current_file, connector_params.iteration_entities_count)
-    scan_domains(list_of_domains, connector_result, queued_requests)
-    scan_domains(queued_requests, connector_result, queued_requests)
+    current_file = virus_total_connector.list_of_files.pop()
+    list_of_domains = virus_total_connector.read_lines_from_file(current_file)
+
+    for domain in list_of_domains:
+        response_json = virus_total_connector.request_data_from_api(domain)
+        virus_total_connector.handle_response(response_json, domain)
+        sleep(40)  # Waiting 40 seconds between each API request.
 
     # Adding .done suffix to the current file
     if current_file.endswith(".txt"):
         os.rename(current_file, current_file.replace("txt", "done"))
 
     # Returns the data to the service framework
-    stdo = io_mgr.end(connector_result)  # original
-    print(stdo)
+    stdo = virus_total_connector.io_mgr.end(virus_total_connector.connector_result)
+    print(json.dumps(stdo, sort_keys=True, indent=4, separators=(',', ': ')))
 
 
 if __name__ == "__main__":

@@ -9,7 +9,6 @@ from subprocess import Popen, PIPE, STDOUT
 
 
 def save_to_output_folder(output_folder_path, output):
-
     now = datetime.datetime.now()
     current_date_and_time = now.strftime("%Y-%m-%d %H:%M:%S").replace(":", "-")
 
@@ -18,21 +17,20 @@ def save_to_output_folder(output_folder_path, output):
 
 
 def run_service(connectors):
-
     print("\nWelcome ! The Service is Up\n")
-    output = ""  # output - the stdout that returns from the script of the connector.
+    output = ""  # output - the stdout that returns from the connector script.
     item = connectors.popitem()  # item - tuple of (connector_name : ConnectorSettings).
 
     while True:
 
-        if output != "There are no txt files in the folder":
+        if output != "There are no .txt files in the source folder":
 
             print(f"Connector: {item[1].name}\n"
                   f"Script file: {os.getcwd()}\\{item[1].connector_name}.py\n"
                   f"Interval: {item[1].run_interval_seconds} seconds\n")
-            print(f"The connector script is hardcoded to: \n"
-                  f"iteration entities count: 4 entities from each file\n"
-                  f"wait between each API request: 40 seconds\n")
+            print(f"The connector is hardcoded to: \n"
+                  f"Number of lines to read from file: 4 entities from each file\n"
+                  f"Delay between each API request: 40 seconds\n")
 
             my_path = f'{os.getcwd()}\VirusTotalConnector.py'
             p1 = subprocess.Popen(["python", my_path], shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
@@ -50,18 +48,21 @@ def run_service(connectors):
                 item = connectors.popitem()
                 output = ""
             except KeyError:
-                print('The dictionary has no item now...')
+                print('The service has done working with the connectors')
+                print("the service is shutting down...")
                 break
 
 
 def main():
+    connectors = {}  # Dictionary {ConnectorName: ConnectorSettings}
 
-    connectors = {}  # Dictionary {string, ConnectorSettings} - connector's name with settings per connector.
-
-    connector1 = ConnectorSettings("connector1", 30, os.getcwd(), "VirusTotalConnector", f"{os.getcwd()}\output_folder")
+    connector1 = ConnectorSettings("connector1", 10, os.getcwd(), "VirusTotalConnector", f"{os.getcwd()}\output_folder")
     connectors[connector1] = connector1
-    connector2 = ConnectorSettings("connector2", 13, os.getcwd(), "VirusTotalConnector", f"{os.getcwd()}\output_folder2")
+    connector2 = ConnectorSettings("connector2", 4, os.getcwd(), "VirusTotalConnector", f"{os.getcwd()}\output_folder2")
     connectors[connector2] = connector2
+
+    # with open(f"{os.getcwd()}\config\config.json", 'w') as fp:
+    #     json.dump(connector1.toJSON(), fp, sort_keys=True, indent=4, separators=(',', ': '))
 
     if connectors:
         run_service(connectors)

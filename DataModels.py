@@ -1,3 +1,7 @@
+import json
+from collections import defaultdict
+
+
 class ConnectorSettings(object):
 
     run_interval_seconds = None  # int - iterations interval in seconds for current connector
@@ -13,6 +17,9 @@ class ConnectorSettings(object):
         self.script_file_path = script_path
         self.connector_name = connector_name
         self.output_folder_path = output_path
+
+    def toJSON(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
     # def set_run_interval_seconds(self):
     #
@@ -89,5 +96,7 @@ class ConnectorParams(object):
 
 
 class ConnectorResult(object):
+
+    # alerts = defaultdict(lambda: "")
 
     alerts = {}  # Dictionary {string, any} - connector output with data per entity. Key = Entity, value = entity data
