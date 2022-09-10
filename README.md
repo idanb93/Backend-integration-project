@@ -1,6 +1,6 @@
 # Synopsis
 
-In this project I built a framework that runs connectors scripts as a subprocesses (a connector script is a script that connects to an API), and saves the stdout result of the subprocess to a json file in a folder.
+In this project I built a service that runs connectors scripts(scripts that fetches an API) as a subprocesses, and saves the STDOUT of the subprocess to a JSON file in a folder.
 
 ## Goals
 
